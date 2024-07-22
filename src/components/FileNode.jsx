@@ -31,7 +31,7 @@ const FileNode = ({ node, path }) => {
   }
 
   return (
-    <div className="ml-4 flex justify-between items-center p-2 bg-gray-100 text-gray-900 font-medium rounded-md">
+    <div className="ml-4 mb-2 shadow-sm hover:shadow-md flex justify-between items-center p-2 bg-gray-100 text-gray-900 font-medium rounded-md">
       {path}
       <button
         onClick={() => downloadFile(node.content, node.name)}
