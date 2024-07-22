@@ -1,11 +1,12 @@
+// ZipExtractor.jsx
 import { useState, useRef } from 'react';
 import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
-import PropTypes from 'prop-types';
+import FileNode from './FileNode';
 
 const ZipExtractor = () => {
   const [files, setFiles] = useState({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFileChange = async (event) => {
@@ -31,91 +32,45 @@ const ZipExtractor = () => {
 
   const extractFiles = async (file) => {
     setLoading(true);
+    setError(null);
     const zip = new JSZip();
-    const content = await zip.loadAsync(file);
 
-    const extractedFiles = {};
-    const promises = [];
+    try {
+      const content = await zip.loadAsync(file);
+      const extractedFiles = {};
+      const promises = [];
 
-    content.forEach((relativePath, zipEntry) => {
-      const pathParts = relativePath.split('/');
-      const fileName = pathParts.pop();
-      let currentDir = extractedFiles;
+      content.forEach((relativePath, zipEntry) => {
+        const pathParts = relativePath.split('/');
+        const fileName = pathParts.pop();
+        let currentDir = extractedFiles;
 
-      pathParts.forEach((part) => {
-        if (!currentDir[part]) {
-          currentDir[part] = { type: 'directory', content: {} };
+        pathParts.forEach((part) => {
+          if (!currentDir[part]) {
+            currentDir[part] = { type: 'directory', content: {} };
+          }
+          currentDir = currentDir[part].content;
+        });
+
+        if (!zipEntry.dir) {
+          const promise = zipEntry.async('blob').then((fileContent) => {
+            currentDir[fileName] = { type: 'file', content: fileContent, name: zipEntry.name };
+          });
+          promises.push(promise);
         }
-        currentDir = currentDir[part].content;
       });
 
-      if (!zipEntry.dir) {
-        const promise = zipEntry.async('blob').then((fileContent) => {
-          currentDir[fileName] = { type: 'file', content: fileContent, name: zipEntry.name };
-        });
-        promises.push(promise);
-      }
-    });
+      await Promise.all(promises);
+      setFiles(extractedFiles);
+    } catch (err) {
+      setError('Failed to extract ZIP file.');
+    }
 
-    await Promise.all(promises);
-    setFiles(extractedFiles);
     setLoading(false);
   };
 
-  const downloadFile = (fileContent, fileName) => {
-    saveAs(fileContent, fileName);
-  };
-
-  const FileNode = ({ node, path }) => {
-    const [expanded, setExpanded] = useState(false);
-
-    if (node.type === 'directory') {
-      return (
-        <div className="ml-4">
-          <div
-            className="cursor-pointer text-gray-700 font-medium"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? '📂' : '📁'} {path}
-          </div>
-          {expanded && (
-            <div className="ml-4">
-              {Object.keys(node.content).map((key) => (
-                <FileNode key={key} node={node.content[key]} path={key} />
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    FileNode.propTypes = {
-      node: PropTypes.shape({
-        type: PropTypes.string.isRequired,
-        content: PropTypes.oneOfType([
-          PropTypes.object,
-          PropTypes.instanceOf(Blob),
-        ]),
-        name: PropTypes.string,
-      }).isRequired,
-      path: PropTypes.string.isRequired,
-    };
-
-    return (
-      <div className="ml-4 flex justify-between items-center p-2 bg-gray-100 text-gray-900 font-medium rounded-md">
-        {path}
-        <button
-          onClick={() => downloadFile(node.content, node.name)}
-          className="ml-4 py-1 px-3 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Download
-        </button>
-      </div>
-    );
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className=" flex items-center justify-center p-4">
       <div className="bg-white rounded-md shadow-md p-6 w-full max-w-lg">
         <h1 className="text-2xl font-bold text-gray-800 mb-4 text-center">Zip File Extractor</h1>
         <div
@@ -123,6 +78,7 @@ const ZipExtractor = () => {
           onDragOver={handleDragOver}
           onClick={() => fileInputRef.current.click()}
           className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center cursor-pointer hover:bg-gray-50"
+          aria-label="Drag and drop your ZIP file here, or click to select a file"
         >
           <p className="text-gray-500">Drag and drop your ZIP file here, or click to select a file</p>
           <input
@@ -133,7 +89,7 @@ const ZipExtractor = () => {
             className="hidden"
           />
         </div>
-        
+
         {loading && (
           <div className="flex justify-center items-center mt-4">
             <svg
@@ -159,7 +115,11 @@ const ZipExtractor = () => {
             <p className="ml-2 text-lg text-gray-700">Loading...</p>
           </div>
         )}
-        
+
+        {error && (
+          <div className="mt-4 text-red-600">{error}</div>
+        )}
+
         <div className="mt-4 space-y-2">
           {Object.keys(files).length > 0 && (
             <FileNode node={{ type: 'directory', content: files }} path="Root" />

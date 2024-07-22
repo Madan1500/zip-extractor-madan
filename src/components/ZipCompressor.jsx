@@ -28,7 +28,7 @@ const ZipCompressor = () => {
   };
 
   return (
-    <div className="min-h-screen md:min-w-[50%] flex items-center justify-center p-4">
+    <div className="md:min-w-[50%] flex items-center justify-center p-4">
       <div className="bg-white rounded-md shadow-md p-6 w-full max-w-lg">
         <h1 className="text-2xl font-bold text-gray-800 mb-4 text-center">Zip File Compressor</h1>
         <div
